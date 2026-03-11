@@ -7,10 +7,14 @@
   --color-foreground: var(--fg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-border: var(--border-color);
+  --color-border-subtle: var(--border-subtle);
   --color-muted: var(--muted);
+  --color-muted-2: var(--muted-2);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
@@ -19,28 +23,36 @@
 
 :root,
 [data-theme="dark"] {
-  --bg: #09090b;
-  --fg: #fafafa;
-  --surface: #18181b;
-  --surface-2: #27272a;
-  --border-color: #27272a;
-  --muted: #71717a;
-  --accent: #818cf8;
+  --bg: #0a0a0c;
+  --fg: #ececef;
+  --surface: #131316;
+  --surface-2: #1c1c21;
+  --surface-3: #252529;
+  --border-color: #232328;
+  --border-subtle: #1a1a1f;
+  --muted: #64646e;
+  --muted-2: #47474f;
+  --accent: #7c82f8;
   --accent-hover: #6366f1;
+  --accent-subtle: rgba(124, 130, 248, 0.08);
   color-scheme: dark;
 }
 
 /* ── Light Theme ── */
 
 [data-theme="light"] {
-  --bg: #fafafa;
-  --fg: #09090b;
+  --bg: #f8f8fa;
+  --fg: #0a0a0c;
   --surface: #ffffff;
-  --surface-2: #f4f4f5;
-  --border-color: #e4e4e7;
-  --muted: #a1a1aa;
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
+  --surface-2: #f0f0f3;
+  --surface-3: #e8e8ec;
+  --border-color: #e0e0e5;
+  --border-subtle: #ebebef;
+  --muted: #8c8c96;
+  --muted-2: #b0b0b8;
+  --accent: #5b5ef0;
+  --accent-hover: #4a4de0;
+  --accent-subtle: rgba(91, 94, 240, 0.06);
   color-scheme: light;
 }
 
@@ -57,8 +69,8 @@ body {
 /* ── Scrollbar ── */
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -71,7 +83,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
+  background: var(--muted-2);
 }
 
 /* ── Selection ── */
@@ -84,34 +96,52 @@ body {
 /* ── Animations ── */
 
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slide-in-left {
-  from { opacity: 0; transform: translateX(-16px); }
+  from { opacity: 0; transform: translateX(-12px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
-@keyframes pulse-subtle {
-  0%, 100% { opacity: 1; }
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; }
   50% { opacity: 0.7; }
 }
 
 .animate-fade-in {
-  animation: fade-in 0.4s ease-out both;
+  animation: fade-in 0.35s ease-out both;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out both;
 }
 
 .animate-slide-in-left {
-  animation: slide-in-left 0.3s ease-out both;
+  animation: slide-in-left 0.25s ease-out both;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.25s ease-out both;
 }
 
 /* ── Glass effect ── */
 
 .glass {
-  background: color-mix(in srgb, var(--surface) 80%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
 }
 
 /* ── Code blocks ── */
@@ -126,18 +156,40 @@ pre {
   border-radius: 8px;
   padding: 1rem;
   overflow-x: auto;
-  font-size: 0.875rem;
-  line-height: 1.6;
+  font-size: 0.8125rem;
+  line-height: 1.65;
 }
 
 code {
-  font-size: 0.875em;
+  font-size: 0.85em;
 }
 
-/* Inline code */
 :not(pre) > code {
   background: var(--surface-2);
-  padding: 0.15em 0.4em;
+  padding: 0.125em 0.375em;
   border-radius: 4px;
-  font-size: 0.85em;
+  font-size: 0.825em;
+}
+
+/* ── Workspace-specific ── */
+
+.workspace-panel {
+  background: var(--surface);
+  border: 1px solid var(--border-color);
+}
+
+/* Subtle top-level gradient used on landing page sections */
+.section-glow {
+  position: relative;
+}
+
+.section-glow::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-color), transparent);
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, Sparkles } from "lucide-react";
+import { Send, Paperclip, Copy, RotateCcw } from "lucide-react";
 import type { Session } from "@/lib/types";
 import { providerColors } from "@/lib/data";
 
@@ -30,52 +30,62 @@ export function ChatPanel({ session, onInsertPrompt }: ChatPanelProps) {
     date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-background">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="max-w-3xl mx-auto space-y-6">
+      <div className="flex-1 overflow-y-auto px-6 py-8">
+        <div className="max-w-2xl mx-auto space-y-7">
           {session.messages.map((message, i) => (
             <div
               key={message.id}
               className="animate-fade-in"
-              style={{ animationDelay: `${i * 50}ms` }}
+              style={{ animationDelay: `${i * 40}ms` }}
             >
               {message.role === "user" ? (
                 <div className="flex justify-end">
-                  <div className="max-w-[85%]">
-                    <div className="px-4 py-3 rounded-2xl rounded-tr-md bg-accent/10 text-sm leading-relaxed">
+                  <div className="max-w-[80%]">
+                    <div className="px-4 py-3 rounded-2xl rounded-tr-sm bg-accent-subtle text-[13px] leading-[1.7]">
                       {message.content}
                     </div>
-                    <div className="text-[11px] text-muted/50 mt-1.5 text-right">
+                    <div className="text-[10px] text-muted-2 mt-1 text-right">
                       {formatTime(message.timestamp)}
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="flex justify-start gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-surface-2 flex items-center justify-center shrink-0 mt-0.5">
-                    <Sparkles size={14} className="text-accent" />
+                <div className="flex gap-3">
+                  {/* Model indicator */}
+                  <div className="w-6 h-6 rounded-md bg-surface-2 flex items-center justify-center shrink-0 mt-0.5">
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{
+                        background: providerColors[session.model.provider],
+                      }}
+                    />
                   </div>
-                  <div className="max-w-[85%] min-w-0">
-                    <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-surface border border-border text-sm leading-relaxed whitespace-pre-wrap">
+                  <div className="max-w-[85%] min-w-0 flex-1">
+                    {/* Model label */}
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="text-[11px] font-medium text-muted">
+                        {message.model}
+                      </span>
+                    </div>
+                    {/* Response body */}
+                    <div className="text-[13px] leading-[1.75] whitespace-pre-wrap">
                       {renderContent(message.content)}
                     </div>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span className="text-[11px] text-muted/50">
+                    {/* Actions row */}
+                    <div className="flex items-center gap-3 mt-2.5">
+                      <span className="text-[10px] text-muted-2">
                         {formatTime(message.timestamp)}
                       </span>
-                      {message.model && (
-                        <span className="text-[11px] text-muted/40 flex items-center gap-1">
-                          <div
-                            className="w-1.5 h-1.5 rounded-full"
-                            style={{
-                              background:
-                                providerColors[session.model.provider],
-                            }}
-                          />
-                          {message.model}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <button className="w-6 h-6 rounded flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer">
+                          <Copy size={12} />
+                        </button>
+                        <button className="w-6 h-6 rounded flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer">
+                          <RotateCcw size={12} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -87,23 +97,22 @@ export function ChatPanel({ session, onInsertPrompt }: ChatPanelProps) {
       </div>
 
       {/* Input */}
-      <div className="px-6 pb-6 pt-2">
-        <div className="max-w-3xl mx-auto">
-          <div className="relative flex items-end gap-3 rounded-xl border border-border bg-surface p-3 focus-within:border-accent/40 transition-colors">
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:text-foreground hover:bg-surface-2 transition-colors shrink-0 cursor-pointer">
-              <Paperclip size={16} />
+      <div className="px-6 pb-5 pt-1">
+        <div className="max-w-2xl mx-auto">
+          <div className="relative flex items-end gap-2.5 rounded-xl border border-border bg-surface p-2.5 focus-within:border-accent/30 transition-colors">
+            <button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors shrink-0 cursor-pointer">
+              <Paperclip size={15} />
             </button>
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Message Symphony..."
+              placeholder="Message..."
               rows={1}
-              className="flex-1 bg-transparent outline-none text-sm resize-none leading-relaxed max-h-40 py-1.5"
+              className="flex-1 bg-transparent outline-none text-[13px] resize-none leading-relaxed max-h-36 py-1"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  // Would send message here
                 }
               }}
               onInput={(e) => {
@@ -113,17 +122,17 @@ export function ChatPanel({ session, onInsertPrompt }: ChatPanelProps) {
               }}
             />
             <button
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+              className={`w-7 h-7 rounded-md flex items-center justify-center transition-all shrink-0 cursor-pointer ${
                 input.trim()
-                  ? "bg-accent text-white shadow-lg shadow-accent/20"
-                  : "bg-surface-2 text-muted"
+                  ? "bg-accent text-white"
+                  : "bg-surface-2 text-muted-2"
               }`}
             >
-              <Send size={16} />
+              <Send size={14} />
             </button>
           </div>
-          <div className="flex items-center justify-center mt-2.5 text-[11px] text-muted/40">
-            Symphony does not store or send data. This is a workspace demo.
+          <div className="text-center mt-2 text-[10px] text-muted-2/60">
+            Demo workspace — no data is stored or sent
           </div>
         </div>
       </div>
@@ -131,7 +140,6 @@ export function ChatPanel({ session, onInsertPrompt }: ChatPanelProps) {
   );
 }
 
-/** Simple renderer that handles code blocks in message content */
 function renderContent(content: string) {
   const parts = content.split(/(```[\s\S]*?```)/g);
   return parts.map((part, i) => {
@@ -140,10 +148,13 @@ function renderContent(content: string) {
       const lang = lines[0]?.trim();
       const code = lang ? lines.slice(1).join("\n") : lines.join("\n");
       return (
-        <pre key={i} className="my-3 text-xs">
+        <pre key={i} className="my-3 text-[12px] !bg-surface-2 !border-border">
           {lang && (
-            <div className="text-[10px] text-muted/50 uppercase tracking-wider mb-2">
-              {lang}
+            <div className="text-[10px] text-muted-2 uppercase tracking-[0.08em] mb-2 flex items-center justify-between">
+              <span>{lang}</span>
+              <button className="text-muted-2 hover:text-foreground transition-colors cursor-pointer">
+                <Copy size={11} />
+              </button>
             </div>
           )}
           <code>{code}</code>
@@ -151,7 +162,6 @@ function renderContent(content: string) {
       );
     }
 
-    // Handle inline markdown bold
     const segments = part.split(/(\*\*[^*]+\*\*)/g);
     return segments.map((seg, j) => {
       if (seg.startsWith("**") && seg.endsWith("**")) {

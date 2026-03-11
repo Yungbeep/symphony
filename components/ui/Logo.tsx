@@ -1,15 +1,13 @@
 import { Waves } from "lucide-react";
 
 export function Logo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
-  const sizes = { sm: "text-lg", md: "text-xl", lg: "text-3xl" };
-  const iconSizes = { sm: 18, md: 22, lg: 32 };
+  const sizes = { sm: "text-[15px]", md: "text-lg", lg: "text-2xl" };
+  const iconSizes = { sm: 16, md: 20, lg: 26 };
 
   return (
-    <div className={`flex items-center gap-2.5 ${sizes[size]}`}>
-      <div className="relative">
-        <Waves size={iconSizes[size]} className="text-accent" />
-      </div>
-      <span className="font-semibold tracking-tight">Symphony</span>
+    <div className={`flex items-center gap-2 ${sizes[size]}`}>
+      <Waves size={iconSizes[size]} className="text-accent" />
+      <span className="font-semibold tracking-[-0.02em]">Symphony</span>
     </div>
   );
 }

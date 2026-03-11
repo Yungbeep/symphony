@@ -9,10 +9,10 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
   return (
     <button
       onClick={toggle}
-      className={`relative flex items-center justify-center w-9 h-9 rounded-lg text-muted hover:text-foreground hover:bg-surface-2 transition-all duration-200 cursor-pointer ${className}`}
+      className={`flex items-center justify-center w-7 h-7 rounded-md text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer ${className}`}
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
     >
-      {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+      {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
     </button>
   );
 }
