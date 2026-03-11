@@ -77,14 +77,30 @@ export function Features() {
           </div>
         </div>
 
+        {/* Toolbox positioning */}
+        <div className="max-w-xl mx-auto text-center mb-28">
+          <div className="inline-block w-px h-10 bg-gradient-to-b from-transparent via-border to-transparent mb-8" />
+          <p className="text-[17px] sm:text-lg leading-[1.8] text-muted">
+            Using AI today is like being a carpenter who walks back
+            to the truck every time they need a different tool.
+          </p>
+          <p className="text-[17px] sm:text-lg leading-[1.8] text-foreground mt-4">
+            Symphony is the toolbox.
+          </p>
+          <p className="text-sm text-muted-2 mt-4">
+            Models, prompts, projects, context — one workspace, always open.
+          </p>
+          <div className="inline-block w-px h-10 bg-gradient-to-b from-transparent via-border to-transparent mt-8" />
+        </div>
+
         {/* Capabilities */}
         <div className="text-center mb-16">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mb-4">
             One environment. No tab switching.
           </h2>
           <p className="text-muted max-w-lg mx-auto">
-            Symphony is not another chatbot skin. It&apos;s a workspace
-            built around the way serious AI users actually work.
+            Not another chatbot skin. A workspace built around the way
+            serious AI users actually work.
           </p>
         </div>
 
