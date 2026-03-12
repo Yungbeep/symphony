@@ -10,6 +10,8 @@ import { sampleSessions, models, handoffResponses } from "@/lib/data";
 import type { Model, Message, Session, HandoffMode } from "@/lib/types";
 
 export default function WorkspacePage() {
+  // Mutable sessions list — starts with sample data, grows with handoffs
+  const [sessions, setSessions] = useState<Session[]>(() => [...sampleSessions]);
   const [activeSessionId, setActiveSessionId] = useState(sampleSessions[0].id);
   const [activeModel, setActiveModel] = useState<Model>(models[2]); // Claude Sonnet 4
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -23,13 +25,13 @@ export default function WorkspacePage() {
   const [handoffContext, setHandoffContext] = useState<Message[]>([]);
   const [handoffSession, setHandoffSession] = useState<Session | null>(null);
 
-  const activeSession = sampleSessions.find((s) => s.id === activeSessionId) ?? sampleSessions[0];
+  const activeSession = sessions.find((s) => s.id === activeSessionId) ?? sessions[0];
 
   // For split view, show handoff session if available, otherwise a different session
   const secondSession =
     handoffSession ??
-    sampleSessions.find((s) => s.id !== activeSessionId) ??
-    sampleSessions[1];
+    sessions.find((s) => s.id !== activeSessionId) ??
+    sessions[1];
 
   const handleInsertPrompt = useCallback((content: string) => {
     setInsertedPrompt(content);
@@ -92,14 +94,16 @@ export default function WorkspacePage() {
         ],
       };
 
-      setHandoffSession(newSession);
       setHandoffOpen(false);
 
       if (mode === "split-view") {
+        setHandoffSession(newSession);
         setSplitView(true);
       } else {
-        // New session mode — make the handoff session the active one
-        // In a real app this would add to the sessions list
+        // New session mode — add to session list and make it active
+        setSessions((prev) => [newSession, ...prev]);
+        setActiveSessionId(newSession.id);
+        setHandoffSession(null);
         setSplitView(false);
       }
     },
@@ -119,6 +123,7 @@ export default function WorkspacePage() {
           }}
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          sessions={sessions}
         />
       )}
 

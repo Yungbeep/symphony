@@ -10,13 +10,15 @@ import {
   MessageSquare,
   Clock,
 } from "lucide-react";
-import { sampleProjects, sampleSessions } from "@/lib/data";
+import { sampleProjects } from "@/lib/data";
+import type { Session } from "@/lib/types";
 
 interface SidebarProps {
   activeSessionId: string;
   onSelectSession: (id: string) => void;
   collapsed: boolean;
   onToggle: () => void;
+  sessions: Session[];
 }
 
 function timeAgo(date: Date): string {
@@ -32,6 +34,7 @@ export function Sidebar({
   onSelectSession,
   collapsed,
   onToggle,
+  sessions,
 }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -61,7 +64,7 @@ export function Sidebar({
     );
   }
 
-  const filteredSessions = sampleSessions.filter((s) =>
+  const filteredSessions = sessions.filter((s) =>
     s.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
