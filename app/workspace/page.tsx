@@ -5,8 +5,9 @@ import { Sidebar } from "@/components/workspace/Sidebar";
 import { TopBar } from "@/components/workspace/TopBar";
 import { ChatPanel } from "@/components/workspace/ChatPanel";
 import { PromptLibrary } from "@/components/workspace/PromptLibrary";
-import { sampleSessions, models } from "@/lib/data";
-import type { Model } from "@/lib/types";
+import { HandoffModal } from "@/components/workspace/HandoffModal";
+import { sampleSessions, models, handoffResponses } from "@/lib/data";
+import type { Model, Message, Session, HandoffMode } from "@/lib/types";
 
 export default function WorkspacePage() {
   const [activeSessionId, setActiveSessionId] = useState(sampleSessions[0].id);
@@ -17,16 +18,93 @@ export default function WorkspacePage() {
   const [splitView, setSplitView] = useState(false);
   const [insertedPrompt, setInsertedPrompt] = useState<string | undefined>();
 
+  // Handoff state
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  const [handoffContext, setHandoffContext] = useState<Message[]>([]);
+  const [handoffSession, setHandoffSession] = useState<Session | null>(null);
+
   const activeSession = sampleSessions.find((s) => s.id === activeSessionId) ?? sampleSessions[0];
 
-  // For split view, show a second session
-  const secondSession = sampleSessions.find((s) => s.id !== activeSessionId) ?? sampleSessions[1];
+  // For split view, show handoff session if available, otherwise a different session
+  const secondSession =
+    handoffSession ??
+    sampleSessions.find((s) => s.id !== activeSessionId) ??
+    sampleSessions[1];
 
   const handleInsertPrompt = useCallback((content: string) => {
     setInsertedPrompt(content);
-    // Reset after a tick so re-inserting the same prompt works
     setTimeout(() => setInsertedPrompt(undefined), 100);
   }, []);
+
+  // Open the handoff modal with the selected context
+  const handleRequestHandoff = useCallback((contextMessages: Message[]) => {
+    setHandoffContext(contextMessages);
+    setHandoffOpen(true);
+  }, []);
+
+  // Execute the handoff — generate a mock session with the target model's response
+  const handleExecuteHandoff = useCallback(
+    (targetModel: Model, mode: HandoffMode) => {
+      // Build the context string from carried-over messages
+      const contextStr = handoffContext
+        .map((m) => m.content)
+        .join("\n\n");
+
+      // Get mock response for the target model
+      const getResponse =
+        handoffResponses[targetModel.id] ?? handoffResponses["gpt-4o"];
+      const responseContent = getResponse(contextStr);
+
+      // Build the handoff session with original context + new response
+      const now = new Date();
+      const newSession: Session = {
+        id: `handoff-${Date.now()}`,
+        title: `${activeSession.title} → ${targetModel.name}`,
+        model: targetModel,
+        createdAt: now,
+        updatedAt: now,
+        messages: [
+          // Carry over the last user message as context
+          ...handoffContext
+            .filter((m) => m.role === "user")
+            .slice(-1)
+            .map((m) => ({
+              ...m,
+              id: `ho-ctx-${m.id}`,
+              timestamp: new Date(now.getTime() - 5000),
+            })),
+          // Handoff indicator message
+          {
+            id: `ho-indicator-${Date.now()}`,
+            role: "assistant" as const,
+            content: `Context handed off from ${activeSession.model.name}. Continuing with ${targetModel.name}.`,
+            timestamp: new Date(now.getTime() - 2000),
+            model: "Symphony",
+          },
+          // New model's response
+          {
+            id: `ho-response-${Date.now()}`,
+            role: "assistant" as const,
+            content: responseContent,
+            timestamp: now,
+            model: targetModel.name,
+          },
+        ],
+      };
+
+      setHandoffSession(newSession);
+      setHandoffOpen(false);
+
+      if (mode === "split-view") {
+        setSplitView(true);
+      } else {
+        // New session mode — make the handoff session the active one
+        // In a real app this would add to the sessions list
+        setSplitView(false);
+      }
+    },
+    [handoffContext, activeSession]
+  );
 
   return (
     <div className="h-screen flex overflow-hidden bg-background">
@@ -34,7 +112,11 @@ export default function WorkspacePage() {
       {!focusMode && (
         <Sidebar
           activeSessionId={activeSessionId}
-          onSelectSession={setActiveSessionId}
+          onSelectSession={(id) => {
+            setActiveSessionId(id);
+            // Clear handoff session when switching sessions
+            setHandoffSession(null);
+          }}
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
@@ -49,14 +131,21 @@ export default function WorkspacePage() {
           focusMode={focusMode}
           onToggleFocus={() => setFocusMode(!focusMode)}
           onTogglePromptLibrary={() => setPromptLibraryOpen(!promptLibraryOpen)}
-          onToggleSplit={() => setSplitView(!splitView)}
+          onToggleSplit={() => {
+            setSplitView(!splitView);
+            if (splitView) setHandoffSession(null);
+          }}
           splitView={splitView}
         />
 
         <div className="flex-1 flex min-h-0">
           {/* Primary chat panel */}
           <div className={`flex-1 min-w-0 ${splitView ? "border-r border-border" : ""}`}>
-            <ChatPanel session={activeSession} onInsertPrompt={insertedPrompt} />
+            <ChatPanel
+              session={activeSession}
+              onInsertPrompt={insertedPrompt}
+              onHandoff={handleRequestHandoff}
+            />
           </div>
 
           {/* Split view - second panel */}
@@ -75,6 +164,15 @@ export default function WorkspacePage() {
           )}
         </div>
       </div>
+
+      {/* Handoff modal */}
+      {handoffOpen && (
+        <HandoffModal
+          sourceModel={activeSession.model}
+          onClose={() => setHandoffOpen(false)}
+          onHandoff={handleExecuteHandoff}
+        />
+      )}
     </div>
   );
 }

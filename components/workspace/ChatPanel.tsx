@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, Copy, RotateCcw } from "lucide-react";
-import type { Session } from "@/lib/types";
+import { Send, Paperclip, Copy, RotateCcw, ArrowRight } from "lucide-react";
+import type { Session, Message } from "@/lib/types";
 import { providerColors } from "@/lib/data";
 
 interface ChatPanelProps {
   session: Session;
   onInsertPrompt?: string;
+  /** Called when user wants to hand off context to another model */
+  onHandoff?: (contextMessages: Message[]) => void;
 }
 
-export function ChatPanel({ session, onInsertPrompt }: ChatPanelProps) {
+export function ChatPanel({ session, onInsertPrompt, onHandoff }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -51,6 +53,14 @@ export function ChatPanel({ session, onInsertPrompt }: ChatPanelProps) {
                     </div>
                   </div>
                 </div>
+              ) : message.model === "Symphony" ? (
+                /* Handoff indicator — compact system message */
+                <div className="flex justify-center py-1">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-2 border border-border text-[11px] text-muted">
+                    <ArrowRight size={11} className="text-accent" />
+                    {message.content}
+                  </div>
+                </div>
               ) : (
                 <div className="flex gap-3">
                   {/* Model indicator */}
@@ -85,6 +95,24 @@ export function ChatPanel({ session, onInsertPrompt }: ChatPanelProps) {
                         <button className="w-6 h-6 rounded flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer">
                           <RotateCcw size={12} />
                         </button>
+                        {onHandoff && (
+                          <button
+                            onClick={() => {
+                              // Collect context: everything up to and including this message
+                              const idx = session.messages.findIndex(
+                                (m) => m.id === message.id
+                              );
+                              onHandoff(session.messages.slice(0, idx + 1));
+                            }}
+                            className="group/handoff h-6 rounded flex items-center gap-1 px-1.5 text-muted-2 hover:text-accent hover:bg-accent-subtle transition-colors cursor-pointer"
+                            title="Hand off to another model"
+                          >
+                            <ArrowRight size={12} />
+                            <span className="text-[10px] font-medium hidden group-hover/handoff:inline">
+                              Hand off
+                            </span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

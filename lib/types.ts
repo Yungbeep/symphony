@@ -38,4 +38,14 @@ export interface SavedPrompt {
   tags: string[];
 }
 
+export type HandoffMode = "new-session" | "split-view";
+
+export interface HandoffRequest {
+  sourceSession: Session;
+  targetModel: Model;
+  mode: HandoffMode;
+  /** Messages to carry over — usually the last exchange or entire thread */
+  context: Message[];
+}
+
 export type Theme = "dark" | "light";
