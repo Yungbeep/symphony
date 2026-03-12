@@ -96,12 +96,17 @@ export default function WorkspacePage() {
 
       setHandoffOpen(false);
 
+      // Always persist the handoff session so it appears in the sidebar
+      setSessions((prev) => {
+        if (prev.some((s) => s.id === newSession.id)) return prev;
+        return [newSession, ...prev];
+      });
+
       if (mode === "split-view") {
         setHandoffSession(newSession);
         setSplitView(true);
       } else {
-        // New session mode — add to session list and make it active
-        setSessions((prev) => [newSession, ...prev]);
+        // New session mode — make it the active view
         setActiveSessionId(newSession.id);
         setHandoffSession(null);
         setSplitView(false);
