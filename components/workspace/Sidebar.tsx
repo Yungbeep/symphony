@@ -10,7 +10,7 @@ import {
   MessageSquare,
   Clock,
 } from "lucide-react";
-import { sampleProjects } from "@/lib/data";
+import { sampleProjects } from "@/lib/demo/seed-data";
 import type { Session } from "@/lib/types";
 
 interface SidebarProps {

@@ -8,7 +8,7 @@ import {
   X,
   Check,
 } from "lucide-react";
-import { models, providerColors, providerNames } from "@/lib/data";
+import { models, providerColors, providerNames } from "@/lib/models/catalog";
 import type { Model, HandoffMode } from "@/lib/types";
 
 interface HandoffModalProps {

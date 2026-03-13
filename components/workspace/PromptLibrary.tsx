@@ -1,7 +1,7 @@
 "use client";
 
 import { X, Search, Tag, ArrowRight } from "lucide-react";
-import { savedPrompts } from "@/lib/data";
+import { savedPrompts } from "@/lib/demo/seed-data";
 import { useState } from "react";
 
 interface PromptLibraryProps {

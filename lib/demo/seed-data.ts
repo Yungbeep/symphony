@@ -1,13 +1,9 @@
-import { Model, Project, SavedPrompt, Session, Message } from "./types";
+import type { Message, Project, SavedPrompt, Session } from "@/lib/types";
+import { models } from "@/lib/models/catalog";
 
-export const models: Model[] = [
-  { id: "gpt-4o", name: "GPT-4o", provider: "openai", tag: "Fast" },
-  { id: "o3", name: "o3", provider: "openai", tag: "Reasoning" },
-  { id: "claude-sonnet-4", name: "Claude Sonnet 4", provider: "anthropic", tag: "Balanced" },
-  { id: "claude-opus-4", name: "Claude Opus 4", provider: "anthropic", tag: "Deep" },
-  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", provider: "google" },
-  { id: "mistral-large", name: "Mistral Large", provider: "mistral" },
-];
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 const msg = (
   id: string,
@@ -22,6 +18,10 @@ const msg = (
   timestamp: new Date(Date.now() - minutesAgo * 60000),
   model,
 });
+
+// ---------------------------------------------------------------------------
+// Sessions
+// ---------------------------------------------------------------------------
 
 export const sampleSessions: Session[] = [
   {
@@ -127,6 +127,10 @@ export const sampleSessions: Session[] = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
 export const sampleProjects: Project[] = [
   {
     id: "p1",
@@ -147,6 +151,10 @@ export const sampleProjects: Project[] = [
     color: "#8b7cf8",
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Saved Prompts
+// ---------------------------------------------------------------------------
 
 export const savedPrompts: SavedPrompt[] = [
   {
@@ -193,12 +201,11 @@ export const savedPrompts: SavedPrompt[] = [
   },
 ];
 
-/**
- * Mock handoff responses — keyed by target model ID.
- * Each returns a believable response to common handoff scenarios
- * (architecture, code review, implementation). In production these
- * would come from real provider APIs.
- */
+// ---------------------------------------------------------------------------
+// Mock handoff responses — keyed by target model ID.
+// In production these would come from real provider APIs.
+// ---------------------------------------------------------------------------
+
 export const handoffResponses: Record<string, (context: string) => string> = {
   "gpt-4o": (context) =>
     `Looking at the context you've handed off, here's my take:\n\n${context.length > 200 ? "This is a substantial thread. Let me focus on the actionable parts.\n\n" : ""}**Quick assessment:**\nThe approach outlined is solid. A few things I'd tighten up:\n\n1. **Error boundaries** — the current thinking assumes the happy path. Add explicit failure modes for each step.\n2. **Sequencing** — some of these steps can be parallelized. Don't serialize what can overlap.\n3. **Validation** — before committing to this direction, define the acceptance criteria. What does "done" look like?\n\nI can draft implementation code for any of these if you want to move from planning to execution.`,
@@ -217,18 +224,4 @@ export const handoffResponses: Record<string, (context: string) => string> = {
 
   "mistral-large": (context) =>
     `Context received. Here's my analysis.\n\n${context.length > 200 ? "Building on the existing discussion:\n\n" : ""}**Summary of what's been established:**\n- The problem is well-defined\n- The directional approach is sound\n- The main risks are operational, not architectural\n\n**What I'd add:**\n\nThe conversation hasn't addressed **testing strategy** for the migration itself. You need:\n\n1. **Shadow traffic** — replay production traffic against the new path and diff the results\n2. **Contract tests** — verify that the extracted service honors the same invariants as the monolith code path\n3. **Chaos injection** — deliberately fail the new service and verify the fallback works\n\nWithout these, you're flying blind after each extraction step. The eval harness concept from your other session would actually map well here — treat the migration as a pipeline with measurable quality gates.\n\nShall I draft the testing matrix?`,
-};
-
-export const providerColors: Record<string, string> = {
-  openai: "#10a37f",
-  anthropic: "#d4a574",
-  google: "#4285f4",
-  mistral: "#ff7000",
-};
-
-export const providerNames: Record<string, string> = {
-  openai: "OpenAI",
-  anthropic: "Anthropic",
-  google: "Google",
-  mistral: "Mistral",
 };

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Paperclip, Copy, RotateCcw, ArrowRight } from "lucide-react";
 import type { Session, Message } from "@/lib/types";
-import { providerColors } from "@/lib/data";
+import { providerColors } from "@/lib/models/catalog";
 
 interface ChatPanelProps {
   session: Session;

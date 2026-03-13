@@ -9,7 +9,7 @@ import {
   Columns2,
   Check,
 } from "lucide-react";
-import { models, providerColors, providerNames } from "@/lib/data";
+import { models, providerColors, providerNames } from "@/lib/models/catalog";
 import type { Model } from "@/lib/types";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Kbd } from "@/components/ui/Kbd";
