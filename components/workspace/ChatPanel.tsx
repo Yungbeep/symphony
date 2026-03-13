@@ -8,11 +8,17 @@ import { providerColors } from "@/lib/models/catalog";
 interface ChatPanelProps {
   session: Session;
   onInsertPrompt?: string;
+  onSendMessage?: (content: string) => void | Promise<void>;
   /** Called when user wants to hand off context to another model */
   onHandoff?: (contextMessages: Message[]) => void;
 }
 
-export function ChatPanel({ session, onInsertPrompt, onHandoff }: ChatPanelProps) {
+export function ChatPanel({
+  session,
+  onInsertPrompt,
+  onSendMessage,
+  onHandoff,
+}: ChatPanelProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -30,6 +36,22 @@ export function ChatPanel({ session, onInsertPrompt, onHandoff }: ChatPanelProps
 
   const formatTime = (date: Date) =>
     date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  const resetTextareaHeight = () => {
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+    }
+  };
+
+  const handleSubmit = async () => {
+    const value = input.trim();
+    if (!value || !onSendMessage) return;
+
+    setInput("");
+    resetTextareaHeight();
+
+    await onSendMessage(value);
+  };
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -54,7 +76,6 @@ export function ChatPanel({ session, onInsertPrompt, onHandoff }: ChatPanelProps
                   </div>
                 </div>
               ) : message.model === "Symphony" ? (
-                /* Handoff indicator — compact system message */
                 <div className="flex justify-center py-1">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-2 border border-border text-[11px] text-muted">
                     <ArrowRight size={11} className="text-accent" />
@@ -63,7 +84,6 @@ export function ChatPanel({ session, onInsertPrompt, onHandoff }: ChatPanelProps
                 </div>
               ) : (
                 <div className="flex gap-3">
-                  {/* Model indicator */}
                   <div className="w-6 h-6 rounded-md bg-surface-2 flex items-center justify-center shrink-0 mt-0.5">
                     <div
                       className="w-2 h-2 rounded-full"
@@ -73,17 +93,14 @@ export function ChatPanel({ session, onInsertPrompt, onHandoff }: ChatPanelProps
                     />
                   </div>
                   <div className="max-w-[85%] min-w-0 flex-1">
-                    {/* Model label */}
                     <div className="flex items-center gap-1.5 mb-1.5">
                       <span className="text-[11px] font-medium text-muted">
                         {message.model}
                       </span>
                     </div>
-                    {/* Response body */}
                     <div className="text-[13px] leading-[1.75] whitespace-pre-wrap">
                       {renderContent(message.content)}
                     </div>
-                    {/* Actions row */}
                     <div className="flex items-center gap-3 mt-2.5">
                       <span className="text-[10px] text-muted-2">
                         {formatTime(message.timestamp)}
@@ -98,7 +115,6 @@ export function ChatPanel({ session, onInsertPrompt, onHandoff }: ChatPanelProps
                         {onHandoff && (
                           <button
                             onClick={() => {
-                              // Collect context: everything up to and including this message
                               const idx = session.messages.findIndex(
                                 (m) => m.id === message.id
                               );
@@ -141,6 +157,7 @@ export function ChatPanel({ session, onInsertPrompt, onHandoff }: ChatPanelProps
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
+                  void handleSubmit();
                 }
               }}
               onInput={(e) => {
@@ -150,6 +167,8 @@ export function ChatPanel({ session, onInsertPrompt, onHandoff }: ChatPanelProps
               }}
             />
             <button
+              onClick={() => void handleSubmit()}
+              disabled={!input.trim()}
               className={`w-7 h-7 rounded-md flex items-center justify-center transition-all shrink-0 cursor-pointer ${
                 input.trim()
                   ? "bg-accent text-white"

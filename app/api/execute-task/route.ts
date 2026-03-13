@@ -30,10 +30,23 @@ export async function POST(req: NextRequest) {
 
   const model = getModel(modelId);
 
-if (!model) {
-  return NextResponse.json(
-    { error: `Unknown modelId: ${modelId}` },
-    { status: 400 }
-  );
-}
+  if (!model) {
+    return NextResponse.json(
+      { error: `Unknown modelId: ${modelId}` },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const message = await executeTask(model, messages);
+    return NextResponse.json({ message });
+  } catch (err: unknown) {
+    const detail = err instanceof Error ? err.message : "Unknown error";
+    console.error("[execute-task] Provider error:", detail);
+
+    return NextResponse.json(
+      { error: "Provider execution failed", detail },
+      { status: 502 }
+    );
+  }
 }

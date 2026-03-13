@@ -31,6 +31,7 @@ export interface WorkspaceState {
 export interface WorkspaceActions {
   setActiveSessionId: (id: string) => void;
   setActiveModel: (model: Model) => void;
+  sendMessage: (content: string) => Promise<void>;
 
   toggleSidebar: () => void;
   togglePromptLibrary: () => void;

@@ -54,7 +54,8 @@ export default function WorkspacePage() {
               session={activeSession}
               onInsertPrompt={ws.insertedPrompt}
               onHandoff={ws.requestHandoff}
-            />
+              onSendMessage={ws.sendMessage}
+          />
           </div>
 
           {ws.splitView && (

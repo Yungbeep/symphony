@@ -9,7 +9,7 @@ import type {
 import { sampleSessions } from "@/lib/demo/seed-data";
 import { models } from "@/lib/models/catalog";
 import { buildHandoffSession } from "@/lib/orchestration/handoff";
-import { appendMessages } from "@/lib/utils/session";
+import { appendMessages, createMessage } from "@/lib/utils/session";
 
 /**
  * All workspace state + actions extracted from page.tsx.
@@ -40,7 +40,6 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
 
   // --- Helpers ---
 
-  /** Replace a session in state by ID (immutable) */
   const updateSession = useCallback((updated: Session) => {
     setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
   }, []);
@@ -82,6 +81,62 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     });
   }, []);
 
+  const sendMessage = useCallback(
+    async (content: string) => {
+      const trimmed = content.trim();
+      if (!trimmed) return;
+
+      const userMessage = createMessage("user", trimmed);
+
+      const optimisticSession = appendMessages(activeSession, [userMessage]);
+      updateSession(optimisticSession);
+
+      try {
+        const messages = optimisticSession.messages.map((m) => ({
+          role: m.role as "system" | "user" | "assistant",
+          content: m.content,
+        }));
+
+        const res = await fetch("/api/execute-task", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            modelId: activeSession.model.id,
+            messages,
+          }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.detail || body.error || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        const assistantMessage: Message = {
+          ...data.message,
+          timestamp: new Date(data.message.timestamp),
+        };
+
+        const updated = appendMessages(optimisticSession, [assistantMessage]);
+        updateSession(updated);
+      } catch (err) {
+        const errorText =
+          err instanceof Error ? err.message : "Message send failed";
+
+        const fallbackMessage = createMessage(
+          "assistant",
+          `Request failed: ${errorText}`,
+      { model: activeSession.model.name }
+  );
+
+        const failedSession = appendMessages(optimisticSession, [fallbackMessage]);
+        updateSession(failedSession);
+      }
+    },
+    [activeSession, updateSession]
+  );
+
   const executeHandoff = useCallback(
     async (targetModel: Model, mode: HandoffMode) => {
       const { session: newSession } = buildHandoffSession(
@@ -93,7 +148,6 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
       setHandoffOpen(false);
       setHandoffError(null);
 
-      // Persist the handoff session immediately
       setSessions((prev) => {
         if (prev.some((s) => s.id === newSession.id)) return prev;
         return [newSession, ...prev];
@@ -137,7 +191,6 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
         const updated = appendMessages(
           {
             ...newSession,
-            // Remove the mock assistant response and replace it with the API response
             messages: newSession.messages.slice(0, -1),
           },
           [msg]
@@ -149,7 +202,6 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
           setHandoffSession(updated);
         }
       } catch (err) {
-        // Mock fallback is already visible in the session, so just surface the error
         setHandoffError(err instanceof Error ? err.message : "Execution failed");
       } finally {
         setHandoffLoading(false);
@@ -183,6 +235,7 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     toggleSplitView,
     insertPrompt,
     requestHandoff,
+    sendMessage,
     executeHandoff,
     closeHandoff,
     clearHandoffSession,
