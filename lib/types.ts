@@ -49,3 +49,10 @@ export interface HandoffRequest {
 }
 
 export type Theme = "dark" | "light";
+
+export type ChatRole = "system" | "user" | "assistant";
+
+export interface ChatMessageInput {
+  role: ChatRole;
+  content: string;
+}

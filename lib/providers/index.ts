@@ -14,7 +14,7 @@ export interface ProviderAdapter {
 
 export interface CompletionParams {
   modelId: string;
-  messages: { role: "user" | "assistant"; content: string }[];
+  messages: { role: "system" | "user" | "assistant"; content: string }[];
   temperature?: number;
   maxTokens?: number;
 }
@@ -40,4 +40,23 @@ export function getProvider(id: Provider): ProviderAdapter | undefined {
 
 export function allProviders(): ProviderAdapter[] {
   return Array.from(adapters.values());
+}
+
+let initialized = false;
+
+/** Register all provider adapters once. Safe to call multiple times. */
+export async function initializeProviders() {
+  if (initialized) return;
+  initialized = true;
+
+  // Dynamic imports so each adapter resolves its own deps
+  const { openaiAdapter } = await import("./openai");
+  const { anthropicAdapter } = await import("./anthropic");
+  const { googleAdapter } = await import("./google");
+  const { mistralAdapter } = await import("./mistral");
+
+  registerProvider(openaiAdapter);
+  registerProvider(anthropicAdapter);
+  registerProvider(googleAdapter);
+  registerProvider(mistralAdapter);
 }

@@ -21,6 +21,11 @@ export interface WorkspaceState {
   handoffOpen: boolean;
   handoffContext: Message[];
   handoffSession: Session | null;
+
+  /** True while an async handoff execution is in flight */
+  handoffLoading: boolean;
+  /** Last handoff execution error, if any */
+  handoffError: string | null;
 }
 
 export interface WorkspaceActions {

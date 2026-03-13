@@ -2,10 +2,14 @@
 
 import { useState, useCallback, useMemo } from "react";
 import type { Model, Message, Session, HandoffMode } from "@/lib/types";
-import type { WorkspaceState, WorkspaceActions } from "@/lib/store/workspace-store";
+import type {
+  WorkspaceState,
+  WorkspaceActions,
+} from "@/lib/store/workspace-store";
 import { sampleSessions } from "@/lib/demo/seed-data";
 import { models } from "@/lib/models/catalog";
 import { buildHandoffSession } from "@/lib/orchestration/handoff";
+import { appendMessages } from "@/lib/utils/session";
 
 /**
  * All workspace state + actions extracted from page.tsx.
@@ -25,6 +29,8 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [handoffContext, setHandoffContext] = useState<Message[]>([]);
   const [handoffSession, setHandoffSession] = useState<Session | null>(null);
+  const [handoffLoading, setHandoffLoading] = useState(false);
+  const [handoffError, setHandoffError] = useState<string | null>(null);
 
   // Derived
   const activeSession = useMemo(
@@ -32,10 +38,20 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     [sessions, activeSessionId]
   );
 
+  // --- Helpers ---
+
+  /** Replace a session in state by ID (immutable) */
+  const updateSession = useCallback((updated: Session) => {
+    setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+  }, []);
+
   // --- Actions ---
 
   const toggleSidebar = useCallback(() => setSidebarCollapsed((v) => !v), []);
-  const togglePromptLibrary = useCallback(() => setPromptLibraryOpen((v) => !v), []);
+  const togglePromptLibrary = useCallback(
+    () => setPromptLibraryOpen((v) => !v),
+    []
+  );
   const toggleFocusMode = useCallback(() => setFocusMode((v) => !v), []);
 
   const toggleSplitView = useCallback(() => {
@@ -67,7 +83,7 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
   }, []);
 
   const executeHandoff = useCallback(
-    (targetModel: Model, mode: HandoffMode) => {
+    async (targetModel: Model, mode: HandoffMode) => {
       const { session: newSession } = buildHandoffSession(
         activeSession,
         targetModel,
@@ -75,8 +91,9 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
       );
 
       setHandoffOpen(false);
+      setHandoffError(null);
 
-      // Always persist the handoff session so it appears in the sidebar
+      // Persist the handoff session immediately
       setSessions((prev) => {
         if (prev.some((s) => s.id === newSession.id)) return prev;
         return [newSession, ...prev];
@@ -90,8 +107,55 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
         setHandoffSession(null);
         setSplitView(false);
       }
+
+      setHandoffLoading(true);
+
+      try {
+        const messages = handoffContext.map((m) => ({
+          role: m.role as "system" | "user" | "assistant",
+          content: m.content,
+        }));
+
+        const res = await fetch("/api/execute-task", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ modelId: targetModel.id, messages }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.detail || body.error || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        const msg: Message = {
+          ...data.message,
+          timestamp: new Date(data.message.timestamp),
+        };
+
+        const updated = appendMessages(
+          {
+            ...newSession,
+            // Remove the mock assistant response and replace it with the API response
+            messages: newSession.messages.slice(0, -1),
+          },
+          [msg]
+        );
+
+        updateSession(updated);
+
+        if (mode === "split-view") {
+          setHandoffSession(updated);
+        }
+      } catch (err) {
+        // Mock fallback is already visible in the session, so just surface the error
+        setHandoffError(err instanceof Error ? err.message : "Execution failed");
+      } finally {
+        setHandoffLoading(false);
+      }
     },
-    [handoffContext, activeSession]
+    [handoffContext, activeSession, updateSession]
   );
 
   return {
@@ -107,6 +171,8 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     handoffOpen,
     handoffContext,
     handoffSession,
+    handoffLoading,
+    handoffError,
 
     // Actions
     setActiveSessionId,

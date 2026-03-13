@@ -9,7 +9,7 @@ import { uid } from "@/lib/utils/session";
  */
 export async function executeTask(
   model: Model,
-  messages: { role: "user" | "assistant"; content: string }[]
+  messages: { role: "system" | "user" | "assistant"; content: string }[]
 ): Promise<Message> {
   const provider = getProvider(model.provider);
 
