@@ -3,6 +3,7 @@ import type {
   ProviderAdapter,
   CompletionParams,
   CompletionResult,
+  StreamChunk,
 } from "./index";
 
 function getClient() {
@@ -34,9 +35,15 @@ export const openaiAdapter: ProviderAdapter = {
     const latencyMs = Date.now() - t0;
 
     const text = response.output
-      .filter((item): item is OpenAI.Responses.ResponseOutputMessage => item.type === "message")
+      .filter(
+        (item): item is OpenAI.Responses.ResponseOutputMessage =>
+          item.type === "message"
+      )
       .flatMap((item) => item.content)
-      .filter((c): c is OpenAI.Responses.ResponseOutputText => c.type === "output_text")
+      .filter(
+        (c): c is OpenAI.Responses.ResponseOutputText =>
+          c.type === "output_text"
+      )
       .map((c) => c.text)
       .join("");
 
@@ -46,6 +53,32 @@ export const openaiAdapter: ProviderAdapter = {
       isMock: false,
       latencyMs,
     };
+  },
+
+  async *stream(params: CompletionParams): AsyncIterable<StreamChunk> {
+    const client = getClient();
+
+    const stream = await client.responses.create({
+      model: params.modelId,
+      input: params.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      stream: true,
+      ...(params.temperature != null && { temperature: params.temperature }),
+      ...(params.maxTokens != null && { max_output_tokens: params.maxTokens }),
+    });
+
+    for await (const event of stream) {
+      if (
+        event.type === "response.output_text.delta" &&
+        "delta" in event
+      ) {
+        yield { type: "chunk", content: event.delta as string };
+      }
+    }
+
+    yield { type: "done", modelId: params.modelId, isMock: false };
   },
 
   isConfigured() {

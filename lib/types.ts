@@ -7,12 +7,15 @@ export interface Model {
   tag?: string;
 }
 
+export type MessageStatus = "streaming" | "done" | "error";
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
   model?: string;
+  status?: MessageStatus;
 }
 
 export interface Session {

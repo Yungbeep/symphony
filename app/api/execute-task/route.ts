@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initializeProviders } from "@/lib/providers";
 import { getModel } from "@/lib/models/catalog";
-import { executeTask } from "@/lib/orchestration/execute-task";
+import { executeTask, streamTask } from "@/lib/orchestration/execute-task";
 
 interface RequestBody {
   modelId: string;
@@ -37,6 +37,39 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const wantStream = req.nextUrl.searchParams.get("stream") === "1";
+
+  // ---- Streaming path ----
+  if (wantStream) {
+    const encoder = new TextEncoder();
+
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of streamTask(model, messages)) {
+            controller.enqueue(encoder.encode(JSON.stringify(chunk) + "\n"));
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          controller.enqueue(
+            encoder.encode(JSON.stringify({ type: "error", message: msg }) + "\n")
+          );
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "application/x-ndjson",
+        "Cache-Control": "no-cache",
+        "Transfer-Encoding": "chunked",
+      },
+    });
+  }
+
+  // ---- Non-streaming path (unchanged) ----
   try {
     const message = await executeTask(model, messages);
     return NextResponse.json({ message });

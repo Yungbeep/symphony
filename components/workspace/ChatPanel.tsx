@@ -99,12 +99,20 @@ export function ChatPanel({
                       </span>
                     </div>
                     <div className="text-[13px] leading-[1.75] whitespace-pre-wrap">
-                      {renderContent(message.content)}
+                      {message.content
+                        ? renderContent(message.content)
+                        : null}
+                      {message.status === "streaming" && (
+                        <span className="inline-block w-[5px] h-[14px] bg-accent/70 ml-0.5 align-middle animate-pulse rounded-sm" />
+                      )}
                     </div>
                     <div className="flex items-center gap-3 mt-2.5">
                       <span className="text-[10px] text-muted-2">
-                        {formatTime(message.timestamp)}
+                        {message.status === "streaming"
+                          ? "Responding…"
+                          : formatTime(message.timestamp)}
                       </span>
+                      {message.status !== "streaming" && (
                       <div className="flex items-center gap-1">
                         <button className="w-6 h-6 rounded flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer">
                           <Copy size={12} />
@@ -130,6 +138,7 @@ export function ChatPanel({
                           </button>
                         )}
                       </div>
+                      )}
                     </div>
                   </div>
                 </div>

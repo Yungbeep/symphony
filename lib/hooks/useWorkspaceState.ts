@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import type { Model, Message, Session, HandoffMode } from "@/lib/types";
 import type {
   WorkspaceState,
@@ -9,30 +9,84 @@ import type {
 import { sampleSessions } from "@/lib/demo/seed-data";
 import { models } from "@/lib/models/catalog";
 import { buildHandoffSession } from "@/lib/orchestration/handoff";
-import { appendMessages, createMessage } from "@/lib/utils/session";
+import {
+  appendMessages,
+  createMessage,
+  updateMessage,
+} from "@/lib/utils/session";
 
-/**
- * All workspace state + actions extracted from page.tsx.
- * The page component becomes a thin layout shell.
- */
+// ---------------------------------------------------------------------------
+// NDJSON stream reader
+// ---------------------------------------------------------------------------
+
+interface StreamChunkMsg {
+  type: "chunk" | "done" | "error";
+  content?: string;
+  modelId?: string;
+  isMock?: boolean;
+  message?: string;
+}
+
+async function readNDJSONStream(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  onChunk: (chunk: StreamChunkMsg) => void
+) {
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        onChunk(JSON.parse(trimmed));
+      } catch {
+        // skip malformed lines
+      }
+    }
+  }
+
+  if (buffer.trim()) {
+    try {
+      onChunk(JSON.parse(buffer.trim()));
+    } catch {
+      // skip
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
 export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
   const [sessions, setSessions] = useState<Session[]>(() => [...sampleSessions]);
   const [activeSessionId, setActiveSessionId] = useState(sampleSessions[0].id);
-  const [activeModel, setActiveModel] = useState<Model>(models[2]); // Claude Sonnet 4
+  const [activeModel, setActiveModel] = useState<Model>(models[2]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [promptLibraryOpen, setPromptLibraryOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [splitView, setSplitView] = useState(false);
   const [insertedPrompt, setInsertedPrompt] = useState<string | undefined>();
 
-  // Handoff state
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [handoffContext, setHandoffContext] = useState<Message[]>([]);
   const [handoffSession, setHandoffSession] = useState<Session | null>(null);
   const [handoffLoading, setHandoffLoading] = useState(false);
   const [handoffError, setHandoffError] = useState<string | null>(null);
 
-  // Derived
+  // Keep a ref so streaming callbacks always see current sessions
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+
   const activeSession = useMemo(
     () => sessions.find((s) => s.id === activeSessionId) ?? sessions[0],
     [sessions, activeSessionId]
@@ -40,8 +94,19 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
 
   // --- Helpers ---
 
-  const updateSession = useCallback((updated: Session) => {
-    setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+  const updateSessionById = useCallback(
+    (sessionId: string, updater: (s: Session) => Session) => {
+      setSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? updater(s) : s))
+      );
+    },
+    []
+  );
+
+  const updateSessionDirect = useCallback((updated: Session) => {
+    setSessions((prev) =>
+      prev.map((s) => (s.id === updated.id ? updated : s))
+    );
   }, []);
 
   // --- Actions ---
@@ -71,7 +136,6 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
   }, []);
 
   const closeHandoff = useCallback(() => setHandoffOpen(false), []);
-
   const clearHandoffSession = useCallback(() => setHandoffSession(null), []);
 
   const addSession = useCallback((session: Session) => {
@@ -81,28 +145,40 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     });
   }, []);
 
+  // ---------- sendMessage with streaming ----------
+
   const sendMessage = useCallback(
     async (content: string) => {
       const trimmed = content.trim();
       if (!trimmed) return;
 
       const userMessage = createMessage("user", trimmed);
+      const assistantPlaceholder = createMessage("assistant", "", {
+        model: activeSession.model.name,
+        status: "streaming",
+      });
 
-      const optimisticSession = appendMessages(activeSession, [userMessage]);
-      updateSession(optimisticSession);
+      const sessionWithUser = appendMessages(activeSession, [userMessage]);
+      const sessionWithPlaceholder = appendMessages(sessionWithUser, [
+        assistantPlaceholder,
+      ]);
+      updateSessionDirect(sessionWithPlaceholder);
+
+      const sessionId = activeSession.id;
+      const msgId = assistantPlaceholder.id;
 
       try {
-        const messages = optimisticSession.messages.map((m) => ({
+        const apiMessages = sessionWithUser.messages.map((m) => ({
           role: m.role as "system" | "user" | "assistant",
           content: m.content,
         }));
 
-        const res = await fetch("/api/execute-task", {
+        const res = await fetch("/api/execute-task?stream=1", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             modelId: activeSession.model.id,
-            messages,
+            messages: apiMessages,
           }),
         });
 
@@ -111,31 +187,56 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
           throw new Error(body.detail || body.error || `HTTP ${res.status}`);
         }
 
-        const data = await res.json();
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("No response stream");
 
-        const assistantMessage: Message = {
-          ...data.message,
-          timestamp: new Date(data.message.timestamp),
-        };
+        let accumulated = "";
 
-        const updated = appendMessages(optimisticSession, [assistantMessage]);
-        updateSession(updated);
+        await readNDJSONStream(reader, (chunk) => {
+          if (chunk.type === "chunk" && chunk.content) {
+            accumulated += chunk.content;
+            const text = accumulated;
+            updateSessionById(sessionId, (s) =>
+              updateMessage(s, msgId, { content: text })
+            );
+          } else if (chunk.type === "done") {
+            updateSessionById(sessionId, (s) =>
+              updateMessage(s, msgId, { status: "done" })
+            );
+          } else if (chunk.type === "error") {
+            updateSessionById(sessionId, (s) =>
+              updateMessage(s, msgId, {
+                content: `Error: ${chunk.message ?? "Unknown error"}`,
+                status: "error",
+              })
+            );
+          }
+        });
+
+        // Safety: mark done if stream ended without explicit "done" chunk
+        updateSessionById(sessionId, (s) => {
+          const msg = s.messages.find((m) => m.id === msgId);
+          if (msg && msg.status === "streaming") {
+            return updateMessage(s, msgId, { status: "done" });
+          }
+          return s;
+        });
       } catch (err) {
         const errorText =
           err instanceof Error ? err.message : "Message send failed";
 
-        const fallbackMessage = createMessage(
-          "assistant",
-          `Request failed: ${errorText}`,
-      { model: activeSession.model.name }
-  );
-
-        const failedSession = appendMessages(optimisticSession, [fallbackMessage]);
-        updateSession(failedSession);
+        updateSessionById(sessionId, (s) =>
+          updateMessage(s, msgId, {
+            content: `Request failed: ${errorText}`,
+            status: "error",
+          })
+        );
       }
     },
-    [activeSession, updateSession]
+    [activeSession, updateSessionDirect, updateSessionById]
   );
+
+  // ---------- executeHandoff (non-streaming, unchanged) ----------
 
   const executeHandoff = useCallback(
     async (targetModel: Model, mode: HandoffMode) => {
@@ -196,22 +297,23 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
           [msg]
         );
 
-        updateSession(updated);
+        updateSessionDirect(updated);
 
         if (mode === "split-view") {
           setHandoffSession(updated);
         }
       } catch (err) {
-        setHandoffError(err instanceof Error ? err.message : "Execution failed");
+        setHandoffError(
+          err instanceof Error ? err.message : "Execution failed"
+        );
       } finally {
         setHandoffLoading(false);
       }
     },
-    [handoffContext, activeSession, updateSession]
+    [handoffContext, activeSession, updateSessionDirect]
   );
 
   return {
-    // State
     sessions,
     activeSessionId,
     activeModel,
@@ -226,7 +328,6 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     handoffLoading,
     handoffError,
 
-    // Actions
     setActiveSessionId,
     setActiveModel,
     toggleSidebar,

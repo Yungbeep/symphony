@@ -1,4 +1,4 @@
-import type { Message, Model, Session } from "@/lib/types";
+import type { Message, MessageStatus, Model, Session } from "@/lib/types";
 
 let _counter = 0;
 
@@ -12,7 +12,7 @@ export function uid(prefix = "id"): string {
 export function createMessage(
   role: "user" | "assistant",
   content: string,
-  opts?: { model?: string; timestamp?: Date }
+  opts?: { model?: string; timestamp?: Date; status?: MessageStatus }
 ): Message {
   return {
     id: uid("msg"),
@@ -20,6 +20,7 @@ export function createMessage(
     content,
     timestamp: opts?.timestamp ?? new Date(),
     model: opts?.model,
+    status: opts?.status,
   };
 }
 
@@ -44,6 +45,21 @@ export function appendMessages(
   return {
     ...session,
     messages: [...session.messages, ...messages],
+    updatedAt: new Date(),
+  };
+}
+
+/** Update a specific message in a session by ID (immutable) */
+export function updateMessage(
+  session: Session,
+  messageId: string,
+  update: Partial<Pick<Message, "content" | "status">>
+): Session {
+  return {
+    ...session,
+    messages: session.messages.map((m) =>
+      m.id === messageId ? { ...m, ...update } : m
+    ),
     updatedAt: new Date(),
   };
 }

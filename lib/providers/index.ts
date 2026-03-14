@@ -1,5 +1,18 @@
 import type { Provider } from "@/lib/types";
 
+// ---------------------------------------------------------------------------
+// Streaming types
+// ---------------------------------------------------------------------------
+
+export type StreamChunk =
+  | { type: "chunk"; content: string }
+  | { type: "done"; modelId: string; isMock: boolean }
+  | { type: "error"; message: string };
+
+// ---------------------------------------------------------------------------
+// Provider adapter interface
+// ---------------------------------------------------------------------------
+
 /** Shape every provider adapter must implement */
 export interface ProviderAdapter {
   readonly id: Provider;
@@ -7,6 +20,9 @@ export interface ProviderAdapter {
 
   /** Send a prompt and return the response text. */
   complete(params: CompletionParams): Promise<CompletionResult>;
+
+  /** Stream a response token-by-token. Optional — falls back to complete() if not implemented. */
+  stream?(params: CompletionParams): AsyncIterable<StreamChunk>;
 
   /** Whether this adapter has real credentials configured */
   isConfigured(): boolean;
@@ -26,6 +42,10 @@ export interface CompletionResult {
   isMock: boolean;
   latencyMs?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Registry
+// ---------------------------------------------------------------------------
 
 /** Registry of all provider adapters */
 const adapters = new Map<Provider, ProviderAdapter>();
