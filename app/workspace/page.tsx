@@ -55,6 +55,8 @@ export default function WorkspacePage() {
               onInsertPrompt={ws.insertedPrompt}
               onHandoff={ws.requestHandoff}
               onSendMessage={ws.sendMessage}
+              onStopGenerating={ws.stopGenerating}
+              isStreaming={ws.isStreaming}
           />
           </div>
 
