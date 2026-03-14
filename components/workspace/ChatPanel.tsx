@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, Copy, RotateCcw, ArrowRight } from "lucide-react";
+import {
+  Send,
+  Paperclip,
+  Copy,
+  RotateCcw,
+  ArrowRight,
+  Square,
+} from "lucide-react";
 import type { Session, Message } from "@/lib/types";
 import { providerColors } from "@/lib/models/catalog";
 
@@ -9,6 +16,8 @@ interface ChatPanelProps {
   session: Session;
   onInsertPrompt?: string;
   onSendMessage?: (content: string) => void | Promise<void>;
+  onStopGenerating?: () => void;
+  isStreaming?: boolean;
   /** Called when user wants to hand off context to another model */
   onHandoff?: (contextMessages: Message[]) => void;
 }
@@ -17,6 +26,8 @@ export function ChatPanel({
   session,
   onInsertPrompt,
   onSendMessage,
+  onStopGenerating,
+  isStreaming = false,
   onHandoff,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
@@ -45,7 +56,7 @@ export function ChatPanel({
 
   const handleSubmit = async () => {
     const value = input.trim();
-    if (!value || !onSendMessage) return;
+    if (!value || !onSendMessage || isStreaming) return;
 
     setInput("");
     resetTextareaHeight();
@@ -99,9 +110,7 @@ export function ChatPanel({
                       </span>
                     </div>
                     <div className="text-[13px] leading-[1.75] whitespace-pre-wrap">
-                      {message.content
-                        ? renderContent(message.content)
-                        : null}
+                      {message.content ? renderContent(message.content) : null}
                       {message.status === "streaming" && (
                         <span className="inline-block w-[5px] h-[14px] bg-accent/70 ml-0.5 align-middle animate-pulse rounded-sm" />
                       )}
@@ -109,35 +118,38 @@ export function ChatPanel({
                     <div className="flex items-center gap-3 mt-2.5">
                       <span className="text-[10px] text-muted-2">
                         {message.status === "streaming"
-                          ? "Responding…"
+                          ? "Responding..."
+                          : message.status === "cancelled"
+                          ? "Stopped"
                           : formatTime(message.timestamp)}
                       </span>
+
                       {message.status !== "streaming" && (
-                      <div className="flex items-center gap-1">
-                        <button className="w-6 h-6 rounded flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer">
-                          <Copy size={12} />
-                        </button>
-                        <button className="w-6 h-6 rounded flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer">
-                          <RotateCcw size={12} />
-                        </button>
-                        {onHandoff && (
-                          <button
-                            onClick={() => {
-                              const idx = session.messages.findIndex(
-                                (m) => m.id === message.id
-                              );
-                              onHandoff(session.messages.slice(0, idx + 1));
-                            }}
-                            className="group/handoff h-6 rounded flex items-center gap-1 px-1.5 text-muted-2 hover:text-accent hover:bg-accent-subtle transition-colors cursor-pointer"
-                            title="Hand off to another model"
-                          >
-                            <ArrowRight size={12} />
-                            <span className="text-[10px] font-medium hidden group-hover/handoff:inline">
-                              Hand off
-                            </span>
+                        <div className="flex items-center gap-1">
+                          <button className="w-6 h-6 rounded flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer">
+                            <Copy size={12} />
                           </button>
-                        )}
-                      </div>
+                          <button className="w-6 h-6 rounded flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer">
+                            <RotateCcw size={12} />
+                          </button>
+                          {onHandoff && (
+                            <button
+                              onClick={() => {
+                                const idx = session.messages.findIndex(
+                                  (m) => m.id === message.id
+                                );
+                                onHandoff(session.messages.slice(0, idx + 1));
+                              }}
+                              className="group/handoff h-6 rounded flex items-center gap-1 px-1.5 text-muted-2 hover:text-accent hover:bg-accent-subtle transition-colors cursor-pointer"
+                              title="Hand off to another model"
+                            >
+                              <ArrowRight size={12} />
+                              <span className="text-[10px] font-medium hidden group-hover/handoff:inline">
+                                Hand off
+                              </span>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -156,17 +168,21 @@ export function ChatPanel({
             <button className="w-7 h-7 rounded-md flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors shrink-0 cursor-pointer">
               <Paperclip size={15} />
             </button>
+
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Message..."
+              placeholder={isStreaming ? "Response in progress..." : "Message..."}
               rows={1}
-              className="flex-1 bg-transparent outline-none text-[13px] resize-none leading-relaxed max-h-36 py-1"
+              disabled={isStreaming}
+              className="flex-1 bg-transparent outline-none text-[13px] resize-none leading-relaxed max-h-36 py-1 disabled:opacity-60"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  void handleSubmit();
+                  if (!isStreaming) {
+                    void handleSubmit();
+                  }
                 }
               }}
               onInput={(e) => {
@@ -175,18 +191,31 @@ export function ChatPanel({
                 target.style.height = `${target.scrollHeight}px`;
               }}
             />
-            <button
-              onClick={() => void handleSubmit()}
-              disabled={!input.trim()}
-              className={`w-7 h-7 rounded-md flex items-center justify-center transition-all shrink-0 cursor-pointer ${
-                input.trim()
-                  ? "bg-accent text-white"
-                  : "bg-surface-2 text-muted-2"
-              }`}
-            >
-              <Send size={14} />
-            </button>
+
+            {isStreaming ? (
+              <button
+                onClick={onStopGenerating}
+                type="button"
+                className="w-7 h-7 rounded-md flex items-center justify-center transition-all shrink-0 cursor-pointer bg-surface-2 text-foreground hover:bg-accent-subtle"
+                title="Stop generating"
+              >
+                <Square size={13} fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                onClick={() => void handleSubmit()}
+                disabled={!input.trim()}
+                className={`w-7 h-7 rounded-md flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+                  input.trim()
+                    ? "bg-accent text-white"
+                    : "bg-surface-2 text-muted-2"
+                }`}
+              >
+                <Send size={14} />
+              </button>
+            )}
           </div>
+
           <div className="text-center mt-2 text-[10px] text-muted-2/60">
             Demo workspace — no data is stored or sent
           </div>
