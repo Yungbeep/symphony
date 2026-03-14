@@ -44,4 +44,7 @@ export interface WorkspaceActions {
   closeHandoff: () => void;
   clearHandoffSession: () => void;
   addSession: (session: Session) => void;
+
+  isStreaming: boolean;
+  stopGenerating: () => void;
 }

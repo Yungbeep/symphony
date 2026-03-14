@@ -7,7 +7,7 @@ export interface Model {
   tag?: string;
 }
 
-export type MessageStatus = "streaming" | "done" | "error";
+export type MessageStatus = "idle" | "streaming" | "done" | "error" | "cancelled";
 
 export interface Message {
   id: string;

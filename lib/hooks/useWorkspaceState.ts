@@ -76,12 +76,19 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
   const [focusMode, setFocusMode] = useState(false);
   const [splitView, setSplitView] = useState(false);
   const [insertedPrompt, setInsertedPrompt] = useState<string | undefined>();
+  const [isStreaming, setIsStreaming] = useState(false);
 
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [handoffContext, setHandoffContext] = useState<Message[]>([]);
   const [handoffSession, setHandoffSession] = useState<Session | null>(null);
   const [handoffLoading, setHandoffLoading] = useState(false);
   const [handoffError, setHandoffError] = useState<string | null>(null);
+
+  const activeStreamRef = useRef<{
+    sessionId: string;
+    assistantMessageId: string;
+    controller: AbortController;
+  } | null>(null);
 
   // Keep a ref so streaming callbacks always see current sessions
   const sessionsRef = useRef(sessions);
@@ -145,12 +152,16 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     });
   }, []);
 
+  const stopGenerating = useCallback(() => {
+    activeStreamRef.current?.controller.abort();
+  }, []);
+
   // ---------- sendMessage with streaming ----------
 
   const sendMessage = useCallback(
     async (content: string) => {
       const trimmed = content.trim();
-      if (!trimmed) return;
+      if (!trimmed || isStreaming) return;
 
       const userMessage = createMessage("user", trimmed);
       const assistantPlaceholder = createMessage("assistant", "", {
@@ -167,6 +178,14 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
       const sessionId = activeSession.id;
       const msgId = assistantPlaceholder.id;
 
+      const controller = new AbortController();
+      activeStreamRef.current = {
+        sessionId,
+        assistantMessageId: msgId,
+        controller,
+      };
+      setIsStreaming(true);
+
       try {
         const apiMessages = sessionWithUser.messages.map((m) => ({
           role: m.role as "system" | "user" | "assistant",
@@ -180,6 +199,7 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
             modelId: activeSession.model.id,
             messages: apiMessages,
           }),
+          signal: controller.signal,
         });
 
         if (!res.ok) {
@@ -193,6 +213,16 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
         let accumulated = "";
 
         await readNDJSONStream(reader, (chunk) => {
+          const activeStream = activeStreamRef.current;
+
+          if (
+            !activeStream ||
+            activeStream.sessionId !== sessionId ||
+            activeStream.assistantMessageId !== msgId
+          ) {
+            return;
+          }
+
           if (chunk.type === "chunk" && chunk.content) {
             accumulated += chunk.content;
             const text = accumulated;
@@ -222,18 +252,36 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
           return s;
         });
       } catch (err) {
-        const errorText =
-          err instanceof Error ? err.message : "Message send failed";
+        if (err instanceof DOMException && err.name === "AbortError") {
+          updateSessionById(sessionId, (s) =>
+            updateMessage(s, msgId, {
+              status: "cancelled",
+            })
+          );
+        } else {
+          const errorText =
+            err instanceof Error ? err.message : "Message send failed";
 
-        updateSessionById(sessionId, (s) =>
-          updateMessage(s, msgId, {
-            content: `Request failed: ${errorText}`,
-            status: "error",
-          })
-        );
+          updateSessionById(sessionId, (s) =>
+            updateMessage(s, msgId, {
+              content: `Request failed: ${errorText}`,
+              status: "error",
+            })
+          );
+        }
+      } finally {
+        const activeStream = activeStreamRef.current;
+        if (
+          activeStream &&
+          activeStream.sessionId === sessionId &&
+          activeStream.assistantMessageId === msgId
+        ) {
+          activeStreamRef.current = null;
+          setIsStreaming(false);
+        }
       }
     },
-    [activeSession, updateSessionDirect, updateSessionById]
+    [activeSession, isStreaming, updateSessionDirect, updateSessionById]
   );
 
   // ---------- executeHandoff (non-streaming, unchanged) ----------
@@ -322,6 +370,7 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     focusMode,
     splitView,
     insertedPrompt,
+    isStreaming,
     handoffOpen,
     handoffContext,
     handoffSession,
@@ -337,6 +386,7 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     insertPrompt,
     requestHandoff,
     sendMessage,
+    stopGenerating,
     executeHandoff,
     closeHandoff,
     clearHandoffSession,
