@@ -90,7 +90,6 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     controller: AbortController;
   } | null>(null);
 
-  // Keep a ref so streaming callbacks always see current sessions
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
 
@@ -98,8 +97,6 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     () => sessions.find((s) => s.id === activeSessionId) ?? sessions[0],
     [sessions, activeSessionId]
   );
-
-  // --- Helpers ---
 
   const updateSessionById = useCallback(
     (sessionId: string, updater: (s: Session) => Session) => {
@@ -115,8 +112,6 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
       prev.map((s) => (s.id === updated.id ? updated : s))
     );
   }, []);
-
-  // --- Actions ---
 
   const toggleSidebar = useCallback(() => setSidebarCollapsed((v) => !v), []);
   const togglePromptLibrary = useCallback(
@@ -156,26 +151,21 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     activeStreamRef.current?.controller.abort();
   }, []);
 
-  // ---------- sendMessage with streaming ----------
+  const streamAssistantReply = useCallback(
+    async (baseSession: Session) => {
+      if (isStreaming) return;
 
-  const sendMessage = useCallback(
-    async (content: string) => {
-      const trimmed = content.trim();
-      if (!trimmed || isStreaming) return;
-
-      const userMessage = createMessage("user", trimmed);
       const assistantPlaceholder = createMessage("assistant", "", {
-        model: activeSession.model.name,
+        model: baseSession.model.name,
         status: "streaming",
       });
 
-      const sessionWithUser = appendMessages(activeSession, [userMessage]);
-      const sessionWithPlaceholder = appendMessages(sessionWithUser, [
+      const sessionWithPlaceholder = appendMessages(baseSession, [
         assistantPlaceholder,
       ]);
       updateSessionDirect(sessionWithPlaceholder);
 
-      const sessionId = activeSession.id;
+      const sessionId = baseSession.id;
       const msgId = assistantPlaceholder.id;
 
       const controller = new AbortController();
@@ -187,7 +177,7 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
       setIsStreaming(true);
 
       try {
-        const apiMessages = sessionWithUser.messages.map((m) => ({
+        const apiMessages = baseSession.messages.map((m) => ({
           role: m.role as "system" | "user" | "assistant",
           content: m.content,
         }));
@@ -196,7 +186,7 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            modelId: activeSession.model.id,
+            modelId: baseSession.model.id,
             messages: apiMessages,
           }),
           signal: controller.signal,
@@ -243,7 +233,6 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
           }
         });
 
-        // Safety: mark done if stream ended without explicit "done" chunk
         updateSessionById(sessionId, (s) => {
           const msg = s.messages.find((m) => m.id === msgId);
           if (msg && msg.status === "streaming") {
@@ -254,9 +243,7 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
           updateSessionById(sessionId, (s) =>
-            updateMessage(s, msgId, {
-              status: "cancelled",
-            })
+            updateMessage(s, msgId, { status: "cancelled" })
           );
         } else {
           const errorText =
@@ -281,10 +268,52 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
         }
       }
     },
-    [activeSession, isStreaming, updateSessionDirect, updateSessionById]
+    [isStreaming, updateSessionById, updateSessionDirect]
   );
 
-  // ---------- executeHandoff (non-streaming, unchanged) ----------
+  const sendMessage = useCallback(
+    async (content: string) => {
+      const trimmed = content.trim();
+      if (!trimmed || isStreaming) return;
+
+      const userMessage = createMessage("user", trimmed);
+      const sessionWithUser = appendMessages(activeSession, [userMessage]);
+
+      updateSessionDirect(sessionWithUser);
+      await streamAssistantReply(sessionWithUser);
+    },
+    [activeSession, isStreaming, streamAssistantReply, updateSessionDirect]
+  );
+
+  const retryMessage = useCallback(
+    async (sessionId: string, assistantMessageId: string) => {
+      const session = sessionsRef.current.find((s) => s.id === sessionId);
+      if (!session || isStreaming) return;
+
+      const assistantIndex = session.messages.findIndex(
+        (m) => m.id === assistantMessageId && m.role === "assistant"
+      );
+      if (assistantIndex === -1) return;
+
+      const priorMessages = session.messages.slice(0, assistantIndex);
+      const lastUserIndex = [...priorMessages]
+        .map((m, idx) => ({ message: m, idx }))
+        .reverse()
+        .find(({ message }) => message.role === "user" && message.content.trim())
+        ?.idx;
+
+      if (lastUserIndex === undefined) return;
+
+      const baseSession: Session = {
+        ...session,
+        messages: session.messages.slice(0, lastUserIndex + 1),
+      };
+
+      updateSessionDirect(baseSession);
+      await streamAssistantReply(baseSession);
+    },
+    [isStreaming, streamAssistantReply, updateSessionDirect]
+  );
 
   const executeHandoff = useCallback(
     async (targetModel: Model, mode: HandoffMode) => {
@@ -387,6 +416,7 @@ export function useWorkspaceState(): WorkspaceState & WorkspaceActions {
     requestHandoff,
     sendMessage,
     stopGenerating,
+    retryMessage,
     executeHandoff,
     closeHandoff,
     clearHandoffSession,

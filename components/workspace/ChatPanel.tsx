@@ -17,6 +17,7 @@ interface ChatPanelProps {
   onInsertPrompt?: string;
   onSendMessage?: (content: string) => void | Promise<void>;
   onStopGenerating?: () => void;
+  onRetryMessage?: (sessionId: string, assistantMessageId: string) => void | Promise<void>;
   isStreaming?: boolean;
   /** Called when user wants to hand off context to another model */
   onHandoff?: (contextMessages: Message[]) => void;
@@ -27,6 +28,7 @@ export function ChatPanel({
   onInsertPrompt,
   onSendMessage,
   onStopGenerating,
+  onRetryMessage,
   isStreaming = false,
   onHandoff,
 }: ChatPanelProps) {
@@ -126,10 +128,10 @@ export function ChatPanel({
 
                       {message.status !== "streaming" && (
                         <div className="flex items-center gap-1">
-                          <button className="w-6 h-6 rounded flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer">
-                            <Copy size={12} />
-                          </button>
-                          <button className="w-6 h-6 rounded flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer">
+                          <button
+                            onClick={() => void onRetryMessage?.(session.id, message.id)}
+                            className="w-6 h-6 rounded flex items-center justify-center text-muted-2 hover:text-foreground hover:bg-surface-2 transition-colors cursor-pointer"
+                            title="Retry response">
                             <RotateCcw size={12} />
                           </button>
                           {onHandoff && (

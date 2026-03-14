@@ -49,20 +49,32 @@ export default function WorkspacePage() {
         />
 
         <div className="flex-1 flex min-h-0">
-          <div className={`flex-1 min-w-0 ${ws.splitView ? "border-r border-border" : ""}`}>
+          <div
+            className={`flex-1 min-w-0 ${
+              ws.splitView ? "border-r border-border" : ""
+            }`}
+          >
             <ChatPanel
               session={activeSession}
               onInsertPrompt={ws.insertedPrompt}
               onHandoff={ws.requestHandoff}
               onSendMessage={ws.sendMessage}
               onStopGenerating={ws.stopGenerating}
+              onRetryMessage={ws.retryMessage}
               isStreaming={ws.isStreaming}
-          />
+            />
           </div>
 
           {ws.splitView && (
             <div className="flex-1 min-w-0">
-              <ChatPanel session={secondSession} />
+              <ChatPanel
+                session={secondSession}
+                onHandoff={ws.requestHandoff}
+                onSendMessage={ws.sendMessage}
+                onStopGenerating={ws.stopGenerating}
+                onRetryMessage={ws.retryMessage}
+                isStreaming={ws.isStreaming}
+              />
             </div>
           )}
 
