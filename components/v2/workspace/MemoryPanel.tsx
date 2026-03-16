@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Plus, Clock, Tag } from "lucide-react";
+import { Brain, Plus, Clock, Tag, Sparkles } from "lucide-react";
 
 interface MemoryPanelProps {
   projectName: string;
@@ -30,7 +30,7 @@ const sampleMemory = [
   },
 ];
 
-export function MemoryPanel({ projectName }: MemoryPanelProps) {
+export function MemoryPanel(_props: MemoryPanelProps) {
   return (
     <div className="h-full flex flex-col bg-surface border-l border-border">
       {/* Header */}
@@ -75,12 +75,21 @@ export function MemoryPanel({ projectName }: MemoryPanelProps) {
         ))}
       </div>
 
-      {/* Agent hint */}
+      {/* Agent context card */}
       <div className="px-3 py-3 border-t border-border">
-        <p className="text-[10px] text-muted-2 text-center leading-relaxed">
-          Memory helps the orchestration assistant understand your project
-          context over time.
-        </p>
+        <div className="rounded-lg border border-accent/10 bg-accent-subtle p-3">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Sparkles size={10} className="text-accent" />
+            <span className="text-[10px] font-semibold text-accent">
+              Agent context
+            </span>
+          </div>
+          <p className="text-[10px] text-muted leading-relaxed">
+            Memory feeds the orchestration assistant. It uses project
+            context to recommend actions, route tasks, and prepare handoffs
+            between your tools.
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -4,35 +4,35 @@ import { ArrowLeftRight, FolderKanban, GitBranch, Boxes } from "lucide-react";
 
 const problems = [
   "Twelve tabs open. Three providers. Zero continuity.",
-  "Copy-pasting context between tools that don't talk to each other.",
+  "Copy-pasting context between tools that don\u2019t share a single thing.",
   "Rebuilding the same project setup every time you start something new.",
-  "No single view of what's deployed, what's broken, and what's next.",
+  "No single view of what\u2019s deployed, what\u2019s broken, and what\u2019s next.",
 ];
 
 const pillars = [
   {
     icon: Boxes,
-    title: "Coordinated tools, not bookmarks",
+    title: "Seats, not bookmarks",
     description:
-      "Each tool in your orchestra has a defined role. Your AI thinks. Your database stores. Your deployment ships. They share the project context.",
+      "Each tool in your orchestra occupies a seat with a defined role. Your AI reasons. Your database stores. Your deployment ships. They share the project.",
   },
   {
     icon: FolderKanban,
-    title: "Project-first, not chat-first",
+    title: "Projects, not threads",
     description:
       "Everything lives inside a project. Sessions, tools, memory, and progress. Switch projects, not tabs.",
   },
   {
     icon: ArrowLeftRight,
-    title: "Built for handoffs",
+    title: "Handoffs, not copy-paste",
     description:
-      "Move context between models, between tools, between tasks. The work flows forward — you never start from scratch.",
+      "Move context between models, between tools, between tasks. The work flows forward. You never rebuild from scratch.",
   },
   {
     icon: GitBranch,
-    title: "Ready for orchestration",
+    title: "Orchestration-ready",
     description:
-      "The tools you choose, the roles you assign, the context you build — everything is structured for a future where an agent coordinates the work.",
+      "The tools you seat, the roles you assign, the context you build \u2014 structured so an orchestration agent can coordinate the work when you\u2019re ready.",
   },
 ];
 
@@ -65,7 +65,7 @@ export function V2Value() {
             A carpenter doesn&apos;t walk back to the truck for every tool.
           </p>
           <p className="text-[17px] leading-[1.8] text-foreground mt-3 font-medium">
-            Symphony is the toolbox — with a conductor.
+            Symphony is the toolbox &mdash; with a conductor.
           </p>
           <div className="inline-block w-px h-10 bg-gradient-to-b from-transparent via-border to-transparent mt-6" />
         </div>
