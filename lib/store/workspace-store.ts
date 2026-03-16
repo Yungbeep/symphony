@@ -11,6 +11,8 @@ export interface WorkspaceState {
   activeSessionId: string;
   activeModel: Model;
 
+  retryMessage: (sessionId: string, assistantMessageId: string) => void | Promise<void>;
+  
   sidebarCollapsed: boolean;
   promptLibraryOpen: boolean;
   focusMode: boolean;
@@ -47,4 +49,6 @@ export interface WorkspaceActions {
 
   isStreaming: boolean;
   stopGenerating: () => void;
+
+  
 }
